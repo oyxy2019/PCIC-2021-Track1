@@ -12,24 +12,33 @@ from castle.common import BaseLearner, Tensor
 class TTPM(BaseLearner):
     """
     TTPM Algorithm.
-    A causal structure learning algorithm based on Topological Hawkes process
-     for spatio-temporal event sequences.
+        A causal structure learning algorithm based on Topological Hawkes process
+        for spatio-temporal event sequences.
+        一种基于拓扑霍克斯过程的因果结构学习算法，用于时空事件序列
     Parameters
     ----------
     topology_matrix: np.matrix
         Interpreted as an adjacency matrix to generate the graph.
         It should have two dimensions, and should be square.
+        网络拓扑的二进制对称邻接矩阵
+        它应该是二维的，而且应该是方阵。
     delta: float, default=0.1
-            Time decaying coefficient for the exponential kernel.
+        Time decaying coefficient for the exponential kernel.
+        指数核的时间衰减系数
     epsilon: int, default=1
         BIC penalty coefficient.
+        BIC惩罚系数
     max_hop: positive int, default=6
         The maximum considered hops in the topology,
         when ``max_hop=0``, it is divided by nodes, regardless of topology.
+        拓扑中考虑的最大跳数，
+        当``max_hop=0``时，它由节点划分，而不考虑拓扑结构。
     penalty: str, default=BIC
         Two optional values: 'BIC' or 'AIC'.
+        两种可选的惩罚方式: 'BIC' or 'AIC'
     max_iter: int
         Maximum number of iterations.
+        迭代次数
     """
 
     def __init__(self, topology_matrix, delta=0.1, epsilon=1,

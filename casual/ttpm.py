@@ -112,7 +112,7 @@ if __name__ == "__main__":
     dag_path = "../datasets/with_topology/2/DAG.npy"
     dataset_name = "2"
     draw_graph = True
-    iters = 1
+    iters = 10
 
     logger.info("---start---")
 
