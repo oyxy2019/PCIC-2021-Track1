@@ -103,16 +103,17 @@ def Draw_graph(graph_matrix, name="graph"):
     net.from_nx(g)
 
     os.makedirs("../output/draw_graphs/", exist_ok=True)
-    # net.show(f"../output/draw_graphs/{name}.html") # 打开路径有点问题，用绝对路径比较好
+    net.show(f"../output/draw_graphs/{name}.html")  # 打开html路径有点问题
 
 
 if __name__ == "__main__":
-    alarm_path = "../datasets/with_topology/2/Alarm.csv"
-    topo_path = "../datasets/with_topology/2/Topology.npy"
-    dag_path = "../datasets/with_topology/2/DAG.npy"
-    dataset_name = "2"
-    draw_graph = True
-    iters = 10
+    dataset_name = "3"
+    dataset_path = "../datasets/with_topology/3"
+    alarm_path = f"{dataset_path}/Alarm.csv"
+    topo_path = f"{dataset_path}/Topology.npy"
+    dag_path = f"{dataset_path}/DAG.npy"
+    draw_graph = False
+    iters = 1
 
     logger.info("---start---")
 
@@ -133,9 +134,9 @@ if __name__ == "__main__":
         # 因果图
         dag_matrix = np.load(dag_path)
         evaluate(est_causal_matrix, dag_matrix)
+        GraphDAG(est_causal_matrix, dag_matrix)
         if draw_graph:
             Draw_graph(est_causal_matrix, f"est-{dataset_name}")
             Draw_graph(dag_matrix, f"true-{dataset_name}")
-            GraphDAG(est_causal_matrix, dag_matrix)
 
     logger.info("---finished---")
