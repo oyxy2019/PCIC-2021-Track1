@@ -103,7 +103,7 @@ def Draw_graph(graph_matrix, name="graph"):
     net.from_nx(g)
 
     os.makedirs("../output/draw_graphs/", exist_ok=True)
-    net.show(f"../output/draw_graphs/{name}.html")  # 打开html路径有点问题
+    net.show(f"../output/draw_graphs/{name}.html")  # 打开html路径有点问题，请手动打开html
 
 
 if __name__ == "__main__":

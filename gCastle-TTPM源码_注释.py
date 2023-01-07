@@ -47,11 +47,11 @@ class TTPM(BaseLearner):
 
         # 加载拓扑图
         assert isinstance(topology_matrix, np.ndarray), \
-            'topology_matrix should be np.matrix object'    # 断言topology_matrix应该是一个np.matrix类型
+            'topology_matrix should be np.matrix object'  # 断言topology_matrix应该是一个np.matrix类型
         assert topology_matrix.ndim == 2, \
-            'topology_matrix should be two dimension'       # 断言topology_matrix的维度为2
+            'topology_matrix should be two dimension'  # 断言topology_matrix的维度为2
         assert topology_matrix.shape[0] == topology_matrix.shape[1], \
-            'The topology_matrix should be square.'         # 断言topology_matrix为一个方阵
+            'The topology_matrix should be square.'  # 断言topology_matrix为一个方阵
         self._topo = nx.from_numpy_matrix(topology_matrix, create_using=nx.Graph)
 
         # 初始化实例变量
@@ -77,11 +77,11 @@ class TTPM(BaseLearner):
         """
 
         # 数据类型检查
-        if not isinstance(tensor, pd.DataFrame):        # 检查tensor类型是否为DataFrame
+        if not isinstance(tensor, pd.DataFrame):  # 检查tensor类型是否为DataFrame
             raise TypeError('The tensor type is not correct,'
                             'only receive pd.DataFrame type currently.')
 
-        cols_list = ['event', 'timestamp', 'node']      # 检查列名在tensor中是否存在
+        cols_list = ['event', 'timestamp', 'node']  # 检查列名在tensor中是否存在
         for col in cols_list:
             if col not in tensor.columns:
                 raise ValueError("The data tensor should contain column with name {}".format(col))
@@ -90,59 +90,70 @@ class TTPM(BaseLearner):
         self._start_init(tensor)
 
         # 生成因果图 (DAG)
-        _, raw_causal_matrix = self._hill_climb()   # 爬山法
+        _, raw_causal_matrix = self._hill_climb()  # 爬山法
         self._causal_matrix = Tensor(raw_causal_matrix,
                                      index=self._matrix_names,
-                                     columns=self._matrix_names)    # 转为Tensor(numpy)类型
+                                     columns=self._matrix_names)  # 转为Tensor(numpy)类型
 
     def _start_init(self, tensor):
         """
         Generates some required initial values.
         生成一些所需的初始值。
         """
-        tensor.dropna(axis=0, how='any', inplace=True)              # 删去有缺失值的那些行
-        tensor['timestamp'] = tensor['timestamp'].astype(float)     # timestamp转为float类型
+        tensor.dropna(axis=0, how='any', inplace=True)  # 删去有缺失值的那些行
+        tensor['timestamp'] = tensor['timestamp'].astype(float)  # timestamp转为float类型
 
-        # ？？
+        # 增加一列，出现相同行的次数，'times'
         tensor = tensor.groupby(
             ['event', 'timestamp', 'node']).apply(len).reset_index()
         tensor.columns = ['event', 'timestamp', 'node', 'times']
         tensor = tensor.reindex(columns=['node', 'timestamp', 'event', 'times'])
 
+        # 排序后，只保留拓扑图中出现的节点，得到最终的self.tensor
+        # （问题：对于没有拓扑图的数据集，拓扑矩阵应该是一个单位阵还是零矩阵？）
         tensor = tensor.sort_values(['node', 'timestamp'])
         self.tensor = tensor[tensor['node'].isin(self._topo.nodes)]
 
         # calculate considered events
+        # 得到_event_names并排序，用于最终的因果图邻接矩阵的行和列
         self._event_names = np.array(list(set(self.tensor['event'])))
         self._event_names.sort()
         self._N = len(self._event_names)
         self._matrix_names = list(self._event_names.astype(str))
 
         # map event name to corresponding index value
+        # 调用_map_event_to_index静态方法，将_event_names映射到相应的索引值，并取代
         self._event_indexes = self._map_event_to_index(
             self.tensor['event'].values, self._event_names)
         self.tensor['event'] = self._event_indexes
 
+        # 拓扑图的子图，只包含'node'及其边，用于_k_hop_neibors方法
         self._g = self._topo.subgraph(self.tensor['node'].unique())
+
+        # ？？，用于，应该也是用来计算拓扑邻居
         self._ne_grouped = self.tensor.groupby('node')
 
-        self._decay_effects = np.zeros(
-            [len(self._event_names), self._max_hop + 1])  # will be used in EM.
+        # ？？，EM算法用到
+        self._decay_effects = np.zeros([len(self._event_names), self._max_hop + 1])  # will be used in EM.
 
+        # 最大时间戳，最小时间戳
         self._max_s_t = tensor['timestamp'].max()
         self._min_s_t = tensor['timestamp'].min()
 
+        # 求self._decay_effects，过程看不懂
         for k in range(self._max_hop + 1):
             self._decay_effects[:, k] = tensor.groupby('event').apply(
-                lambda i: ((((1 - np.exp(
-                    -self._delta * (self._max_s_t - i['timestamp']))) / self._delta)
-                            * i['times']) * i['node'].apply(
-                    lambda j: len(self._k_hop_neibors(j, k)))).sum())
+                lambda i: (
+                        (((1 - np.exp(-self._delta * (self._max_s_t - i['timestamp']))) / self._delta) * i['times'])
+                        * i['node'].apply(lambda j: len(self._k_hop_neibors(j, k)))
+                ).sum()
+            )
+
         # |V|x|T|
+        # 等于node数量×时间宽度，EM算法用到
         self._T = (self._max_s_t - self._min_s_t) * len(tensor['node'].unique())
 
     def _k_hop_neibors(self, node, k):
-
         if k == 0:
             return {node}
         else:
