@@ -12,38 +12,49 @@ from castle.common import BaseLearner, Tensor
 class TTPM(BaseLearner):
     """
     TTPM Algorithm.
-    A causal structure learning algorithm based on Topological Hawkes process
-     for spatio-temporal event sequences.
+        A causal structure learning algorithm based on Topological Hawkes process
+        for spatio-temporal event sequences.
+        一种基于拓扑霍克斯过程的因果结构学习算法，用于时空事件序列
     Parameters
     ----------
     topology_matrix: np.matrix
         Interpreted as an adjacency matrix to generate the graph.
         It should have two dimensions, and should be square.
+        网络拓扑的二进制对称邻接矩阵
+        它应该是二维的，而且应该是方阵。
     delta: float, default=0.1
-            Time decaying coefficient for the exponential kernel.
+        Time decaying coefficient for the exponential kernel.
+        指数核的时间衰减系数
     epsilon: int, default=1
         BIC penalty coefficient.
+        BIC惩罚系数
     max_hop: positive int, default=6
         The maximum considered hops in the topology,
         when ``max_hop=0``, it is divided by nodes, regardless of topology.
+        拓扑中考虑的最大跳数，
+        当``max_hop=0``时，它由节点划分，而不考虑拓扑结构。
     penalty: str, default=BIC
         Two optional values: 'BIC' or 'AIC'.
+        两种可选的惩罚方式: 'BIC' or 'AIC'
     max_iter: int
         Maximum number of iterations.
+        迭代次数
     """
 
     def __init__(self, topology_matrix, delta=0.1, epsilon=1,
                  max_hop=0, penalty='BIC', max_iter=20):
         BaseLearner.__init__(self)
+
+        # 加载拓扑图
         assert isinstance(topology_matrix, np.ndarray), \
-            'topology_matrix should be np.matrix object'
+            'topology_matrix should be np.matrix object'    # 断言topology_matrix应该是一个np.matrix类型
         assert topology_matrix.ndim == 2, \
-            'topology_matrix should be two dimension'
+            'topology_matrix should be two dimension'       # 断言topology_matrix的维度为2
         assert topology_matrix.shape[0] == topology_matrix.shape[1], \
-            'The topology_matrix should be square.'
-        self._topo = nx.from_numpy_matrix(topology_matrix,
-                                          create_using=nx.Graph)
-        # initialize instance variables
+            'The topology_matrix should be square.'         # 断言topology_matrix为一个方阵
+        self._topo = nx.from_numpy_matrix(topology_matrix, create_using=nx.Graph)
+
+        # 初始化实例变量
         self._penalty = penalty
         self._delta = delta
         self._max_hop = max_hop
@@ -53,46 +64,46 @@ class TTPM(BaseLearner):
     def learn(self, tensor, *args, **kwargs):
         """
         Set up and run the TTPM algorithm.
+        设置并运行TTPM算法
         Parameters
         ----------
         tensor:  pandas.DataFrame
-            (V 1.0.0, we'll eliminate this constraint in the next version)
-            The tensor is supposed to contain three cols:
+            tensor应该包含三个cols:
                 ['event', 'timestamp', 'node']
-            Description of the three columns:
-                event: event name (type).
-                timestamp: occurrence timestamp of event, i.e., '1615962101.0'.
-                node: topological node where the event happened.
+            描述如下:
+                event: 事件类型
+                timestamp: 事件发生的时间戳，例如'1615962101.0'
+                node: 事件发生的拓扑节点
         """
 
-        # data type judgment
-        if not isinstance(tensor, pd.DataFrame):
+        # 数据类型检查
+        if not isinstance(tensor, pd.DataFrame):        # 检查tensor类型是否为DataFrame
             raise TypeError('The tensor type is not correct,'
                             'only receive pd.DataFrame type currently.')
 
-        cols_list = ['event', 'timestamp', 'node']
+        cols_list = ['event', 'timestamp', 'node']      # 检查列名在tensor中是否存在
         for col in cols_list:
             if col not in tensor.columns:
-                raise ValueError(
-                    "The data tensor should contain column with name {}".format(
-                        col))
+                raise ValueError("The data tensor should contain column with name {}".format(col))
 
-        # initialize needed values
+        # 变量初始化，根据tensor
         self._start_init(tensor)
 
-        # Generate causal matrix (DAG)
-        _, raw_causal_matrix = self._hill_climb()
+        # 生成因果图 (DAG)
+        _, raw_causal_matrix = self._hill_climb()   # 爬山法
         self._causal_matrix = Tensor(raw_causal_matrix,
                                      index=self._matrix_names,
-                                     columns=self._matrix_names)
+                                     columns=self._matrix_names)    # 转为Tensor(numpy)类型
 
     def _start_init(self, tensor):
         """
         Generates some required initial values.
+        生成一些所需的初始值。
         """
-        tensor.dropna(axis=0, how='any', inplace=True)
-        tensor['timestamp'] = tensor['timestamp'].astype(float)
+        tensor.dropna(axis=0, how='any', inplace=True)              # 删去有缺失值的那些行
+        tensor['timestamp'] = tensor['timestamp'].astype(float)     # timestamp转为float类型
 
+        # ？？
         tensor = tensor.groupby(
             ['event', 'timestamp', 'node']).apply(len).reset_index()
         tensor.columns = ['event', 'timestamp', 'node', 'times']
