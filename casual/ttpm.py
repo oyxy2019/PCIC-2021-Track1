@@ -8,7 +8,6 @@
 """
 import os
 import time
-import typer
 
 import networkx as nx
 import numexpr as ne
@@ -18,6 +17,7 @@ from castle.algorithms import TTPM
 from castle.common import GraphDAG
 from castle.metrics import MetricsDAG
 from loguru import logger
+
 from pyvis.network import Network
 
 ne.set_vml_num_threads(12)
@@ -52,11 +52,11 @@ def model_fit(train_data, topo_matrix, iters):
 
     ttpm.learn(train_data)  # 迭代时间非常长...
 
-    est_causal_matrix = ttpm.causal_matrix.to_numpy()
+    est_causal_matrix = ttpm.causal_matrix
 
     model_time_end = time.time()
 
-    logger.info(f"Model fitting finished. Elapsed time: {model_time_end-model_time_start}")
+    logger.info(f"Model fitting finished. Elapsed time: {model_time_end - model_time_start}")
 
     return est_causal_matrix
 
@@ -92,7 +92,7 @@ def evaluate(est_causal_matrix, true_graph_matrix):
     return g_score
 
 
-def draw_graph(graph_matrix, name="graph"):
+def Draw_graph(graph_matrix, name="graph"):
     """draw graph.
 
     Args:
@@ -102,21 +102,21 @@ def draw_graph(graph_matrix, name="graph"):
     g = nx.from_numpy_matrix(graph_matrix)
     net.from_nx(g)
 
-    os.makedirs("./output/draw_graphs/", exist_ok=True)
-    net.show(f"./output/draw_graphs/{name}.html")
+    os.makedirs("../output/draw_graphs/", exist_ok=True)
+    # net.show(f"../output/draw_graphs/{name}.html") # 打开路径有点问题，用绝对路径比较好
 
 
-def main(
-    alarm_path: str = typer.Option(default="", help="alarm csv path."),
-    topo_path: str = typer.Option(default="", help="topology path."),
-    dag_path: str = typer.Option(default="", help="true graph path."),
-    dataset_name: str = typer.Option(default="", help="output file name."),
-    draw_graph: bool = typer.Option(default=False, help="draw graph."),
-    iters: int = typer.Option(default=10, help="number of iterations."),
-):
+if __name__ == "__main__":
+    alarm_path = "../datasets/with_topology/2/Alarm.csv"
+    topo_path = "../datasets/with_topology/2/Topology.npy"
+    dag_path = "../datasets/with_topology/2/DAG.npy"
+    dataset_name = "2"
+    draw_graph = True
+    iters = 1
+
     logger.info("---start---")
 
-    os.makedirs("./output", exist_ok=True)
+    os.makedirs("../output", exist_ok=True)
     # 历史告警
     alarm_data = pd.read_csv(alarm_path, encoding="utf")
     # 拓扑图
@@ -126,21 +126,16 @@ def main(
 
     est_causal_matrix = model_fit(alarm_data, topo_matrix, iters)
 
-    os.makedirs("./output/est_graphs", exist_ok=True)
-    np.save(f"./output/est_graphs/{iters}-{dataset_name}.npy", est_causal_matrix)
+    os.makedirs("../output/est_graphs", exist_ok=True)
+    np.save(f"../output/est_graphs/{iters}-{dataset_name}.npy", est_causal_matrix)
 
     if dag_path:
         # 因果图
         dag_matrix = np.load(dag_path)
         evaluate(est_causal_matrix, dag_matrix)
         if draw_graph:
-            draw_graph(est_causal_matrix, f"est-{dataset_name}")
-            draw_graph(dag_matrix, f"true-{dataset_name}")
-
-    # GraphDAG(est_causal_matrix, dag_matrix)
+            Draw_graph(est_causal_matrix, f"est-{dataset_name}")
+            Draw_graph(dag_matrix, f"true-{dataset_name}")
+            GraphDAG(est_causal_matrix, dag_matrix)
 
     logger.info("---finished---")
-
-
-if __name__ == "__main__":
-    typer.run(main)
