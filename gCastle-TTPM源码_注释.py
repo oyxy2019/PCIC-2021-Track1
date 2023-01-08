@@ -17,7 +17,7 @@ class TTPM(BaseLearner):
         一种基于拓扑霍克斯过程的因果结构学习算法，用于时空事件序列
     Parameters
     ----------
-    topology_matrix: np.matrix
+    topology_matrix: np.Matrix
         Interpreted as an adjacency matrix to generate the graph.
         It should have two dimensions, and should be square.
         网络拓扑的二进制对称邻接矩阵
@@ -184,18 +184,24 @@ class TTPM(BaseLearner):
     def _hill_climb(self):
         """
         Search the best causal graph, then generate the causal matrix (DAG).
-        Returns
+        爬山法搜索最优因果图
+        Returns：返回值
         -------
         result: tuple, (likelihood, alpha matrix, events vector)
-            likelihood: used as the score criteria for searching the
-                causal structure.
+            likelihood: used as the score criteria for searching the causal structure.
+                用于搜索因果结构的得分标准。
             alpha matrix: the intensity of causal effect from event v’ to v.
+                从事件v'到事件v的因果效应的强度。
             events vector: the exogenous base intensity of each event.
+                每个事件的外部基础强度。
         edge_mat: np.ndarray
             Causal matrix.
+                因果图矩阵
         """
         self._get_effect_tensor_decays()
+
         # Initialize the adjacency matrix
+        # 初始化邻接矩阵edge_mat，和初始likelihood_score
         edge_mat = np.eye(self._N, self._N)
         result = self._em(edge_mat)
         l_ret = result[0]
@@ -205,17 +211,17 @@ class TTPM(BaseLearner):
             logging.info('[iter {}]: likelihood_score = {}'.format(num_iter, l_ret))
 
             stop_tag = True
-            for new_edge_mat in list(
-                    self._one_step_change_iterator(edge_mat)):
-                new_result = self._em(new_edge_mat)
-                new_l = new_result[0]
-                # Termination condition:
-                #   no adjacency matrix with higher likelihood appears
+            # 对当前的因果图作出一步改变，得到一些新因果图
+            for new_edge_mat in list(self._one_step_change_iterator(edge_mat)):
+                new_result = self._em(new_edge_mat)  # EM算法，最大化似然函数
+                new_l = new_result[0]  # 得到新图的似然
+                # 循环结束条件：新似然不再变大
+                # no adjacency matrix with higher likelihood appears
                 if new_l > l_ret:
                     result = new_result
                     l_ret = new_l
                     stop_tag = False
-                    edge_mat = new_edge_mat
+                    edge_mat = new_edge_mat  # 更新因果图
 
             if stop_tag:
                 return result, edge_mat
@@ -278,14 +284,14 @@ class TTPM(BaseLearner):
     def _em(self, edge_mat):
         """
         E-M module, used to find the optimal parameters.
+        E-M算法，用于找到最优参数
         Parameters
         ----------
         edge_mat： np.ndarray
             Adjacency matrix.
         Returns
         -------
-        likelihood: used as the score criteria for searching the
-            causal structure.
+        likelihood: used as the score criteria for searching the causal structure.
         alpha matrix: the intensity of causal effect from event v’ to v.
         events vector: the exogenous base intensity of each event.
         """
@@ -293,14 +299,15 @@ class TTPM(BaseLearner):
         causal_g = nx.from_numpy_matrix((edge_mat - np.eye(self._N, self._N)),
                                         create_using=nx.DiGraph)
 
+        # 因果图必须是一个DAG（有向无环图）
         if not nx.is_directed_acyclic_graph(causal_g):
             return -100000000000000, \
                    np.zeros([len(self._event_names), len(self._event_names)]), \
                    np.zeros(len(self._event_names))
 
-        # Initialize alpha:(nxn)，mu:(nx1) and L
-        alpha = np.ones([self._max_hop + 1, len(self._event_names),
-                         len(self._event_names)])
+        # 初始化：
+        # alpha:(nxn)，mu:(nx1) and L
+        alpha = np.ones([self._max_hop + 1, len(self._event_names), len(self._event_names)])
         alpha = alpha * edge_mat
         mu = np.ones(len(self._event_names))
         l_init = 0
@@ -314,10 +321,12 @@ class TTPM(BaseLearner):
             x_i_all[ind] = x_i
             while 1:
                 # Calculate the first part of the likelihood
+                # 计算公式9的第一部分
                 lambda_i_sum = (self._decay_effects
                                 * alpha[:, :, i].T).sum() + mu[i] * self._T
 
                 # Calculate the second part of the likelihood
+                # 计算公式9的第二部分
                 lambda_for_i = np.zeros(len(self.tensor)) + mu[i]
                 for k in range(self._max_hop + 1):
                     lambda_for_i += np.matmul(
@@ -325,9 +334,12 @@ class TTPM(BaseLearner):
                         alpha[k, :, i].T)
                 lambda_for_i = lambda_for_i[ind]
                 x_log_lambda = (x_i * np.log(lambda_for_i)).sum()
+
+                # 公式9第一部分+第二部分
                 new_li = -lambda_i_sum + x_log_lambda
 
                 # Iteration termination condition
+                # while(1)循环停止条件：当L与上一次L的差小于0.1，则认为收敛
                 delta = new_li - li
                 if delta < 0.1:
                     li = new_li
@@ -336,10 +348,12 @@ class TTPM(BaseLearner):
                     for j in pa_i:
                         pa_i_alpha[j] = alpha[:, j, i]
                     break
+
+                # update L
                 li = new_li
-                # update mu
+                # update mu，公式11μ
                 mu[i] = ((mu[i] / lambda_for_i) * x_i).sum() / self._T
-                # update alpha
+                # update alpha，公式11α
                 for j in pa_i:
                     for k in range(self._max_hop + 1):
                         upper = ((alpha[k, j, i] * (
@@ -350,30 +364,31 @@ class TTPM(BaseLearner):
                             alpha[k, j, i] = 0
                             continue
                         alpha[k, j, i] = upper / lower
-            i += 1
+            i += 1  # ？这里没太看懂
 
+        # 加上BIC惩罚，公式10，返回三个值
         if self._penalty == 'AIC':
-            return l_init - (len(self._event_names)
-                             + self._epsilon * edge_mat.sum()
-                             * (self._max_hop + 1)), alpha, mu
+            return l_init - (len(self._event_names) + self._epsilon * edge_mat.sum() * (self._max_hop + 1)), \
+                   alpha, mu
         elif self._penalty == 'BIC':
-            return l_init - (len(self._event_names)
-                             + self._epsilon * edge_mat.sum()
-                             * (self._max_hop + 1)) * np.log(
-                self.tensor['times'].sum()) / 2, alpha, mu
+            return l_init - (len(self._event_names) + self._epsilon * edge_mat.sum() * (self._max_hop + 1)
+                             ) * np.log(self.tensor['times'].sum()) / 2, \
+                   alpha, mu
         else:
             raise ValueError("The penalty's value should be BIC or AIC.")
 
     def _one_step_change_iterator(self, edge_mat):
-
-        return map(lambda e: self._one_step_change(edge_mat, e),
-                   product(range(len(self._event_names)),
-                           range(len(self._event_names))))
+        # 返回一系列的新图，类型为numpy矩阵
+        return map(
+            lambda e: self._one_step_change(edge_mat, e),
+            product(range(len(self._event_names)), range(len(self._event_names)))
+        )
 
     @staticmethod
     def _one_step_change(edge_mat, e):
         """
         Changes the edge value in the edge_mat.
+        改变 edge_mat 其中一条边
         Parameters
         ----------
         edge_mat: np.ndarray
@@ -385,14 +400,20 @@ class TTPM(BaseLearner):
             new value of edge
         """
         j, i = e
+
+        # j和i相等，返回原图
+        # ？？那这样对角线上的1不是一直都得不到更新吗
+        # 更新：确实得不到更新，GraphDAG方法画图的时候直接令对角线上的元素为0了，对角线上是1或0也没有意义
         if j == i:
             return edge_mat
+
         new_edge_mat = edge_mat.copy()
 
+        # 修改（j, i）这条边：如果原来是相连的就修改为断开，反之相连
         if new_edge_mat[j, i] == 1:
             new_edge_mat[j, i] = 0
             return new_edge_mat
         else:
             new_edge_mat[j, i] = 1
-            new_edge_mat[i, j] = 0
+            new_edge_mat[i, j] = 0  # 因果图中，两个结点（事件类型）不可能同时存在两条有向边：一个是因一个是果
             return new_edge_mat
