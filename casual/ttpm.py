@@ -113,7 +113,7 @@ if __name__ == "__main__":
     topo_path = f"{dataset_path}/Topology.npy"
     dag_path = f"{dataset_path}/DAG.npy"
     draw_graph = False
-    iters = 1
+    iters = 15
 
     logger.info("---start---")
 

@@ -133,7 +133,7 @@ class TTPM(BaseLearner):
         # ？？，用于，应该也是用来计算拓扑邻居
         self._ne_grouped = self.tensor.groupby('node')
 
-        # ？？，EM算法用到
+        # ，EM算法用到
         self._decay_effects = np.zeros([len(self._event_names), self._max_hop + 1])  # will be used in EM.
 
         # 最大时间戳，最小时间戳
@@ -150,7 +150,7 @@ class TTPM(BaseLearner):
             )
 
         # |V|x|T|
-        # 等于node数量×时间宽度，EM算法用到
+        # 等于node数量×时间宽度，EM算法用到，公式11的分母
         self._T = (self._max_s_t - self._min_s_t) * len(tensor['node'].unique())
 
     def _k_hop_neibors(self, node, k):
@@ -306,14 +306,14 @@ class TTPM(BaseLearner):
                    np.zeros(len(self._event_names))
 
         # 初始化：
-        # alpha:(nxn)，mu:(nx1) and L
+        # alpha:(Kxnxn)，mu:(nx1) and L
         alpha = np.ones([self._max_hop + 1, len(self._event_names), len(self._event_names)])
         alpha = alpha * edge_mat
         mu = np.ones(len(self._event_names))
         l_init = 0
 
         for i in range(len(self._event_names)):
-            pa_i = set(np.where(edge_mat[:, i] == 1)[0])
+            pa_i = set(np.where(edge_mat[:, i] == 1)[0])    # i这一列出现1的行索引的集合
             li = -100000000000
             ind = np.where(self._event_indexes == i)
             x_i = self.tensor['times'].values[ind]
