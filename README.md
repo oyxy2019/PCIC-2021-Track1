@@ -1,6 +1,6 @@
-THP代码复现
+## THP代码复现
 
-环境安装：
+环境安装：(python3.8)
 ```
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
