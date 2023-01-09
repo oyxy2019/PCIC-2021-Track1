@@ -1,4 +1,11 @@
-THP代码复现，原Readme文件如下。
+THP代码复现
+
+环境安装：
+```
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+原Readme文件如下：
 
 ## PCIC 2021 Track1: Causal Discovery
 
