@@ -17,6 +17,7 @@ from castle.algorithms import TTPM
 from castle.common import GraphDAG
 from castle.metrics import MetricsDAG
 from loguru import logger
+from matplotlib import pyplot as plt
 
 from pyvis.network import Network
 
@@ -50,7 +51,8 @@ def model_fit(train_data, topo_matrix, iters):
 
     ttpm = TTPM(topo_matrix, max_iter=iters, max_hop=2)
 
-    ttpm.learn(train_data)  # 迭代时间非常长...
+    dag_matrix = np.load(dag_path)
+    ttpm.learn(train_data, dag_matrix)  # 迭代时间非常长...
 
     est_causal_matrix = ttpm.causal_matrix
 
@@ -100,10 +102,19 @@ def Draw_graph(graph_matrix, name="graph"):
     """
     net = Network("500px", "900px", notebook=False, directed=True, layout=False)
     g = nx.from_numpy_matrix(graph_matrix)
+
     net.from_nx(g)
 
     os.makedirs("../output/draw_graphs/", exist_ok=True)
-    net.show(f"../output/draw_graphs/{name}.html")  # 打开html路径有点问题，请手动打开html
+    # net.show(f"../output/draw_graphs/{name}.html")  # 打开html路径有点问题，请手动打开html
+    # nx.draw_networkx_nodes(g, pos=nx.spring_layout(g))
+    # nx.draw(g, pos=nx.spring_layout(g))
+    # nx.draw_networkx_labels(g, pos=nx.spring_layout(g))
+    print(g.nodes())
+    print("________________")
+    print(g.edges())
+    nx.draw_networkx(g, pos=nx.spring_layout(g))
+    plt.show(block=True)
 
 
 if __name__ == "__main__":
@@ -113,7 +124,7 @@ if __name__ == "__main__":
     topo_path = f"{dataset_path}/Topology.npy"
     dag_path = f"{dataset_path}/DAG.npy"
     draw_graph = False
-    iters = 15
+    iters = 30
 
     logger.info("---start---")
 
@@ -122,21 +133,22 @@ if __name__ == "__main__":
     alarm_data = pd.read_csv(alarm_path, encoding="utf")
     # 拓扑图
     topo_matrix = np.load(topo_path)
+    Draw_graph(topo_matrix, f"topo-{dataset_name}")
 
-    alarm_data = preprocessing(alarm_data)
-
-    est_causal_matrix = model_fit(alarm_data, topo_matrix, iters)
-
-    os.makedirs("../output/est_graphs", exist_ok=True)
-    np.save(f"../output/est_graphs/{iters}-{dataset_name}.npy", est_causal_matrix)
-
-    if dag_path:
-        # 因果图
-        dag_matrix = np.load(dag_path)
-        evaluate(est_causal_matrix, dag_matrix)
-        GraphDAG(est_causal_matrix, dag_matrix)
-        if draw_graph:
-            Draw_graph(est_causal_matrix, f"est-{dataset_name}")
-            Draw_graph(dag_matrix, f"true-{dataset_name}")
+    # alarm_data = preprocessing(alarm_data)
+    #
+    # est_causal_matrix = model_fit(alarm_data, topo_matrix, iters)
+    #
+    # os.makedirs("../output/est_graphs", exist_ok=True)
+    # np.save(f"../output/est_graphs/{iters}-{dataset_name}.npy", est_causal_matrix)
+    #
+    # if dag_path:
+    #     # 真实因果图
+    #     dag_matrix = np.load(dag_path)
+    #     evaluate(est_causal_matrix, dag_matrix)
+    #     GraphDAG(est_causal_matrix, dag_matrix)
+    #     if draw_graph:
+    #         Draw_graph(est_causal_matrix, f"est-{dataset_name}")
+    #         Draw_graph(dag_matrix, f"true-{dataset_name}")
 
     logger.info("---finished---")
