@@ -313,7 +313,7 @@ class TTPM(BaseLearner):
         l_init = 0
 
         for i in range(len(self._event_names)):
-            pa_i = set(np.where(edge_mat[:, i] == 1)[0])    # i这一列出现1的行索引的集合
+            pa_i = set(np.where(edge_mat[:, i] == 1)[0])    # 因果图中，i这一列为1的行索引的集合
             li = -100000000000
             ind = np.where(self._event_indexes == i)
             x_i = self.tensor['times'].values[ind]
@@ -364,7 +364,7 @@ class TTPM(BaseLearner):
                             alpha[k, j, i] = 0
                             continue
                         alpha[k, j, i] = upper / lower
-            i += 1  # ？这里没太看懂
+            i += 1  # 这里没太看懂 更新：这行代码没有用，不会修改i值，可注释
 
         # 加上BIC惩罚，公式10，返回三个值
         if self._penalty == 'AIC':
